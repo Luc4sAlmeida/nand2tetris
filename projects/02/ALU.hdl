@@ -16,15 +16,8 @@
 
 // Implementation: the ALU logic manipulates the x and y inputs
 // and operates on the resulting values, as follows:
-// if (zx == 1) set x = 0        // 16-bit constant
-// if (nx == 1) set x = !x       // bitwise not
-// if (zy == 1) set y = 0        // 16-bit constant
-// if (ny == 1) set y = !y       // bitwise not
-// if (f == 1)  set out = x + y  // integer 2's complement addition
-// if (f == 0)  set out = x & y  // bitwise and
-// if (no == 1) set out = !out   // bitwise not
-// if (out == 0) set zr = 1
-// if (out < 0) set ng = 1
+
+
 
 CHIP ALU {
     IN  
@@ -42,5 +35,33 @@ CHIP ALU {
         ng; // 1 if (out < 0),  0 otherwise
 
     PARTS:
-   // Put you code here:
+        // if (zx == 1) set x = 0        // 16-bit constant
+        // if (nx == 1) set x = !x       // bitwise not
+        Mux16(a=x, b=false, sel=zx, out=xval1);
+        Not16(in=xval1, out=xnotval);
+        Mux16(a=xval1, b=xnotval, sel=nx, out=xval);
+
+        // if (zy == 1) set y = 0        // 16-bit constant
+        // if (ny == 1) set y = !y       // bitwise not
+        Mux16(a=y, b=false, sel=zy, out=yval1);
+        Not16(in=yval1, out=ynotval);
+        Mux16(a=yval1, b=ynotval, sel=ny, out=yval);
+        
+        // Pós
+        // if (f == 0)  set out = x & y  // bitwise and
+        // if (f == 1)  set out = x + y  // integer 2's complement addition
+        And16(a=xval, b=yval, out=and);
+        Add16(a=xval, b=yval, out=sum);
+
+        // if (no == 1) set out = !out   // bitwise not
+        Mux16(a=and, b=sum, sel=f, out=out1);
+        Not16(in=out1, out=notout);
+
+        Mux16(a=out1, b=notout, sel=no, out=out2);
+
+        Or16Way(in=out2, out=outnonzero);
+        Mux(a=true, b=false, sel=outnonzero, out=zr);   /* if out=0 then zr=1 else zr=0 */
+        IsNeg16(in=out2, out=neg);
+        Mux(a=false, b=true, sel=neg, out=ng);          /* if out<0 then ng=1 else ng=0 */
+        Or16(a=out2, b=false, out=out);
 }
