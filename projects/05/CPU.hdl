@@ -39,5 +39,39 @@ CHIP CPU {
         pc[15];          // address of next instruction
 
     PARTS:
-    // Put your code here:
+        // 111 0000000 000 111
+        DecodedInstruction(in=instruction, op=op, a=a, c1=c1, c2=c2, c3=c3, c4=c4, c5=c5, c6=c6, d1=d1, d2=d2, d3=d3, j1=j1, j2=j2, j3=j3);
+        
+        Not(in=op, out=isA);
+        Not(in=isA, out=isC); 
+
+        And(a=isC, b=d1, out=ALUtoA);    // C-inst and dest to A-reg?
+        Mux16(a=instruction, b=ALUout, sel=ALUtoA, out=AregIn);
+
+        Or(a=isA, b=ALUtoA, out=loadA);
+        ARegister(in=AregIn, load=loadA, out=outRegA);
+
+        Mux16(a=outRegA, b=inM, sel=a, out=AMout);// select A or M based on a-bit
+
+        And(a=isC, b=d2, out=loadD);
+        DRegister(in=ALUout, load=loadD, out=outRegD);
+
+        ALU(x=outRegD, y=AMout, zx=c1, nx=c2, zy=c3, ny=c4, f=c5, no=c6, out=ALUout, zr=outZr, ng=outNg);
+
+        // Outputs
+        Or16(a=false, b=outRegA, out[0..14]=addressM);
+        Or16(a=false, b=ALUout, out=outM);
+        And(a=isC, b=d3, out=writeM);
+
+         // calc PCload & PCinc - whether to load PC with A reg
+        And(a=outZr, b=j2, out=jeq);    // is zero and jump if zero
+        And(a=outNg, b=j1, out=jlt);    // is neg and jump if neg
+        Or(a=outZr, b=outNg, out=zeroOrNeg);
+        Not(in=zeroOrNeg, out=positive);            // is positive (not zero and not neg)
+        And(a=positive, b=j3, out=jgt); // is pos and jump if pos
+        Or(a=jeq, b=jlt, out=jle);
+        Or(a=jle, b=jgt, out=jumpToA);              // load PC if cond met and jump if cond
+        And(a=isC, b=jumpToA, out=PCload); // Only jump if C instruction
+        Not(in=PCload, out=PCinc);                  // only inc if not load
+        PC(in=outRegA, inc=PCinc, load=PCload, reset=reset, out[0..14]=pc);
 }
